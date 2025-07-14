@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demographic Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+        #filter-form {
+            margin: 20px auto;
+            max-width: 600px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+        select, input[type="date"], button {
+            padding: 8px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #export_csv {
+            background-color: #2196F3;
+        }
+        #export_csv:hover {
+            background-color: #1976D2;
+        }
+        #chart_type {
+            background-color: #FFC107;
+        }
+        #chart_type:hover {
+            background-color: #FFA000;
+        }
+        #chart-container {
+            max-width: 800px;
+            margin: 20px auto;
+            position: relative;
+        }
+        #loading {
+            display: none;
+            text-align: center;
+            color: #666;
+            margin: 10px 0;
+        }
+        #error {
+            color: red;
+            text-align: center;
+            display: none;
+            margin: 10px 0;
+        }
+        #no-data {
+            text-align: center;
+            color: #666;
+            margin: 10px 0;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h2>Demographic Dashboard</h2>
+
+    <form id="filter-form">
+        <label for="gender">Gender:</label>
+        <select name="gender" id="gender">
+            <option value="">All</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+        </select>
+
+        <label for="age">Age Group:</label>
+        <select name="age" id="age">
+            <option value="">All</option>
+            <option value="0-2">0-2</option>
+            <option value="3-9">3-9</option>
+            <option value="10-19">10-19</option>
+            <option value="20-29">20-29</option>
+            <option value="30-39">30-39</option>
+            <option value="40-49">40-49</option>
+            <option value="50-59">50-59</option>
+            <option value="60+">60+</option>
+        </select>
+
+        <label for="start_date">Start Date:</label>
+        <input type="date" id="start_date" name="start_date">
+
+        <label for="end_date">End Date:</label>
+        <input type="date" id="end_date" name="end_date">
+
+        <button type="submit">Filter</button>
+        <button type="button" id="export_csv">Export as CSV</button>
+        <button type="button" id="chart_type">Toggle Chart Type</button>
+    </form>
+
+    <div id="loading">Loading data...</div>
+    <div id="error"></div>
+    <div id="no-data">No demographic data available in the database for the selected filters.</div>
+    <div id="chart-container">
+        <canvas id="demographicChart"></canvas>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('demographicChart').getContext('2d');
+        let chart;
+        let chartType = 'bar';
+        let autoRefresh = true;
+
+        function fetchData(filters = {}) {
+            const loading = document.getElementById('loading');
+            const errorDiv = document.getElementById('error');
+            const noDataDiv = document.getElementById('no-data');
+            loading.style.display = 'block';
+            errorDiv.style.display = 'none';
+            noDataDiv.style.display = 'none';
+
+            const params = new URLSearchParams(filters).toString();
+            console.log('Fetching /filter_data with params:', params);
+            fetch(`/filter_data?${params}`)
+                .then(response => {
+                    console.log('filter_data status:', response.status);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('filter_data response:', data);
+                    const ageGroups = ['0-2', '3-9', '10-19', '20-29', '30-39', '40-49', '50-59', '60+'];
+                    const maleData = Array(ageGroups.length).fill(0);
+                    const femaleData = Array(ageGroups.length).fill(0);
+
+                    if (data.length === 0) {
+                        console.warn('No data returned from /filter_data');
+                        noDataDiv.style.display = 'block';
+                    }
+
+                    data.forEach(item => {
+                        const idx = ageGroups.indexOf(item.age);
+                        if (idx !== -1) {
+                            if (item.gender === 'male') maleData[idx] = item.count;
+                            if (item.gender === 'female') femaleData[idx] = item.count;
+                            console.log(`Processed: ${item.gender}, ${item.age}, count=${item.count}`);
+                        } else {
+                            console.warn(`Unknown age group: ${item.age}`);
+                        }
+                    });
+
+                    if (chart) chart.destroy();
+
+                    chart = new Chart(ctx, {
+                        type: chartType,
+                        data: {
+                            labels: ageGroups,
+                            datasets: [
+                                {
+                                    label: 'male',
+                                    data: maleData,
+                                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                                    borderColor: 'rgba(54, 162, 235, 1)',
+                                    borderWidth: 1
+                                },
+                                {
+                                    label: 'female',
+                                    data: femaleData,
+                                    backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                                    borderColor: 'rgba(255, 99, 132, 1)',
+                                    borderWidth: 1
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                x: { title: { display: true, text: 'Age Group' } },
+                                y: { beginAtZero: true, title: { display: true, text: 'Count' } }
+                            },
+                            plugins: { legend: { position: 'top' } }
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching filter_data:', error);
+                    errorDiv.innerText = 'Failed to load data from database. Check console for details.';
+                    errorDiv.style.display = 'block';
+                })
+                .finally(() => {
+                    loading.style.display = 'none';
+                });
+        }
+
+        // CSV export
+        document.getElementById('export_csv').addEventListener('click', () => {
+            const filters = {
+                gender: document.getElementById('gender').value,
+                age: document.getElementById('age').value,
+                start_date: document.getElementById('start_date').value,
+                end_date: document.getElementById('end_date').value
+            };
+            const params = new URLSearchParams(filters).toString();
+            console.log('Exporting CSV with params:', params);
+            window.location.href = `/export_csv?${params}`;
+        });
+
+        // Toggle chart type
+        document.getElementById('chart_type').addEventListener('click', () => {
+            chartType = chartType === 'bar' ? 'line' : 'bar';
+            document.getElementById('chart_type').innerText = `Switch to ${chartType === 'bar' ? 'Line' : 'Bar'} Chart`;
+            const filters = {
+                gender: document.getElementById('gender').value,
+                age: document.getElementById('age').value,
+                start_date: document.getElementById('start_date').value,
+                end_date: document.getElementById('end_date').value
+            };
+            fetchData(filters);
+        });
+
+        // Initial load
+        fetchData();
+
+        // Handle filter form
+        document.getElementById('filter-form').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const filters = {
+                gender: document.getElementById('gender').value,
+                age: document.getElementById('age').value,
+                start_date: document.getElementById('start_date').value,
+                end_date: document.getElementById('end_date').value
+            };
+            console.log('Applying filters:', filters);
+            fetchData(filters);
+        });
+
+        // Periodic refresh
+        setInterval(() => {
+            if (autoRefresh) {
+                const filters = {
+                    gender: document.getElementById('gender').value,
+                    age: document.getElementById('age').value,
+                    start_date: document.getElementById('start_date').value,
+                    end_date: document.getElementById('end_date').value
+                };
+                console.log('Auto-refreshing chart with filters:', filters);
+                fetchData(filters);
+            }
+        }, 10000); // Refresh every 10 seconds
+    </script>
+</body>
+</html>

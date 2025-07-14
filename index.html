@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Advertisement System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            justify-items: center;
+            margin-top: 20px;
+        }
+        .box {
+            border: 2px solid #333;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
+            background-color: #fff;
+            width: 95%;
+            max-width: 600px;
+            text-align: center;
+            overflow: visible;
+        }
+        img {
+            max-width: 100%;
+            border-radius: 10px;
+            object-fit: cover;
+        }
+        #video_feed {
+            width: 100%;
+            height: auto;
+        }
+        #advertisement {
+            width: 100%;
+            height: 400px;
+            object-fit: contain;
+        }
+        #status_message {
+            color: red;
+            font-weight: bold;
+            min-height: 24px;
+            margin: 10px 0;
+        }
+        #demographic_info, #ad_category {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #e0f7fa;
+            border-radius: 5px;
+            font-size: 18px;
+            color: #333;
+            min-height: 30px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #start_detection {
+            background-color: #2196F3;
+        }
+        #start_detection.stopped {
+            background-color: #f44336;
+        }
+        #start_detection.stopped:hover {
+            background-color: #d32f2f;
+        }
+    </style>
+</head>
+<body>
+    <a href="/dashboard">
+        <button style="position: absolute; top: 20px; right: 20px;">View Dashboard</button>
+    </a>
+
+    <h1>Smart Advertisement System</h1>
+    <h2>Unique Visitors in the Last Hour: <span id="unique_count">0</span></h2>
+    <h3 id="status_message" role="alert"></h3>
+    <button id="start_detection">Start Detection</button>
+
+    <div class="container">
+        <div class="box">
+            <h2>Live Gender & Age Detection</h2>
+            <div id="demographic_info">No detection yet</div>
+            <img id="video_feed" src="static/no_webcam.jpg" alt="Live webcam feed">
+        </div>
+
+        <div class="box">
+            <h2>Current Advertisement</h2>
+            <div id="ad_category">No ad category selected</div>
+            <img id="advertisement" src="static/default_ad.jpg" alt="Advertisement">
+        </div>
+    </div>
+
+    <script>
+        let isDetecting = false;
+
+        function handleFetchError(endpoint, error) {
+            console.error(`Error fetching ${endpoint}:`, error);
+            document.getElementById('status_message').innerText = `Error fetching ${endpoint}. Check console for details.`;
+        }
+
+        function updateUniqueCount() {
+            if (!isDetecting) return;
+            fetch('/get_unique_count')
+                .then(response => {
+                    console.log('get_unique_count status:', response.status);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('get_unique_count response:', data);
+                    const uniqueCount = document.getElementById('unique_count');
+                    if (uniqueCount) {
+                        uniqueCount.innerText = data.unique_visitors || 0;
+                        console.log(`Updated #unique_count to ${data.unique_visitors}`);
+                    } else {
+                        console.warn('Element #unique_count not found');
+                    }
+                })
+                .catch(error => handleFetchError('/get_unique_count', error));
+        }
+
+        function updateDemographicInfo() {
+            if (!isDetecting) return;
+            fetch('/get_demographic')
+                .then(response => {
+                    console.log('get_demographic status:', response.status);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('get_demographic response:', data);
+                    const demoInfo = document.getElementById('demographic_info');
+                    const adCategory = document.getElementById('ad_category');
+                    if (demoInfo && adCategory) {
+                        if (data.gender && data.age) {
+                            demoInfo.innerText = `Detected: ${data.gender}, ${data.age}`;
+                            adCategory.innerText = `Ad Category: ${data.gender}, ${data.age}`;
+                        } else {
+                            demoInfo.innerText = 'No face detected';
+                            adCategory.innerText = 'No ad category selected';
+                        }
+                    } else {
+                        console.warn('Element #demographic_info or #ad_category not found');
+                    }
+                })
+                .catch(error => handleFetchError('/get_demographic', error));
+        }
+
+        function updateAdvertisement() {
+            if (!isDetecting) return;
+            fetch('/get_ad')
+                .then(response => {
+                    console.log('get_ad status:', response.status);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('get_ad response:', data);
+                    const advertisement = document.getElementById('advertisement');
+                    if (advertisement) {
+                        const adImage = data.ad_image || 'static/default_ad.jpg';
+                        advertisement.src = adImage + '?' + new Date().getTime();
+                        console.log(`Updated advertisement to ${adImage}`);
+                    } else {
+                        console.warn('Element #advertisement not found');
+                    }
+                })
+                .catch(error => handleFetchError('/get_ad', error));
+        }
+
+        function checkFaceStatus() {
+            if (!isDetecting) {
+                document.getElementById('status_message').innerText = 'Detection stopped. Click "Start Detection" to begin.';
+                document.getElementById('demographic_info').innerText = 'No detection yet';
+                document.getElementById('ad_category').innerText = 'No ad category selected';
+                return;
+            }
+            fetch('/status')
+                .then(response => {
+                    console.log('status status:', response.status);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('status response:', data);
+                    const statusMsg = document.getElementById('status_message');
+                    if (statusMsg) {
+                        statusMsg.innerText = data.no_face
+                            ? '⚠️ No face detected. Please check lighting or adjust your position.'
+                            : '';
+                    }
+                })
+                .catch(error => handleFetchError('/status', error));
+        }
+
+        function toggleDetection() {
+            const button = document.getElementById('start_detection');
+            isDetecting = !isDetecting;
+            fetch('/toggle_detection', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ detecting: isDetecting })
+            })
+                .then(response => {
+                    console.log('toggle_detection status:', response.status);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('toggle_detection response:', data);
+                    if (data.success) {
+                        if (isDetecting) {
+                            button.innerText = 'Stop Detection';
+                            button.classList.add('stopped');
+                            document.getElementById('video_feed').src = "{{ url_for('video_feed') }}";
+                            document.getElementById('status_message').innerText = '';
+                            document.getElementById('demographic_info').innerText = 'No detection yet';
+                            document.getElementById('ad_category').innerText = 'No ad category selected';
+                        } else {
+                            button.innerText = 'Start Detection';
+                            button.classList.remove('stopped');
+                            document.getElementById('video_feed').src = 'static/no_webcam.jpg';
+                            document.getElementById('status_message').innerText = 'Detection stopped. Click "Start Detection" to begin.';
+                            document.getElementById('demographic_info').innerText = 'No detection yet';
+                            document.getElementById('ad_category').innerText = 'No ad category selected';
+                        }
+                    } else {
+                        isDetecting = !isDetecting;
+                        document.getElementById('status_message').innerText = data.error || 'Error toggling detection.';
+                    }
+                })
+                .catch(error => {
+                    isDetecting = !isDetecting;
+                    handleFetchError('/toggle_detection', error);
+                });
+        }
+
+        // Initialize
+        checkFaceStatus();
+        document.getElementById('start_detection').addEventListener('click', toggleDetection);
+
+        // Staggered updates
+        setInterval(updateAdvertisement, 5000);
+        setInterval(updateUniqueCount, 5000);
+        setInterval(checkFaceStatus, 5000);
+        setInterval(updateDemographicInfo, 5000);
+    </script>
+</body>
+</html>

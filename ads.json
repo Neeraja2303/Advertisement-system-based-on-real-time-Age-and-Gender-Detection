@@ -1,0 +1,18 @@
+[
+    {"gender": "Male", "age": "0-2", "image_path": "static/ads/ads/male0-2_ad.jpg"},
+    {"gender": "Female", "age": "0-2", "image_path": "static/ads/ads/female0-2.jpg"},
+    {"gender": "Male", "age": "3-9", "image_path": "static/ads/ads/male3-9.jpg"},
+    {"gender": "Female", "age": "3-9", "image_path": "static/ads/ads/emale3-9.jpg"},
+    {"gender": "Male", "age": "10-19", "image_path": "static/ads/ads/male10-19.jpg"},
+    {"gender": "Female", "age": "10-19", "image_path": "static/ads/ads/female10-19.jpg"},
+    {"gender": "Male", "age": "20-29", "image_path": "static/ads/ads/male20-29.jpg"},
+    {"gender": "Female", "age": "20-29", "image_path": "static/ads/ads/female20-29.jpg"},
+    {"gender": "Male", "age": "30-39", "image_path": "static/ads/ads/male30-39.jpg"},
+    {"gender": "Female", "age": "30-39", "image_path": "static/ads/ads/female30-39.jpg"},
+    {"gender": "Male", "age": "40-49", "image_path": "static/ads/ads/male40-49.jpg"},
+    {"gender": "Female", "age": "40-49", "image_path": "static/ads/ads/female40-49.jpg"},
+    {"gender": "Male", "age": "50-59", "image_path": "static/ads/ads/male50-59.jpg"},
+    {"gender": "Female", "age": "50-59", "image_path": "static/ads/ads/female50-59.jpg"},
+    {"gender": "Male", "age": "60+", "image_path": "static/ads/ads/male60+.jpg"},
+    {"gender": "Female", "age": "60+", "image_path": "static/ads/ads/female60+.jpg"}
+]
